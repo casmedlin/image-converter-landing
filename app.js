@@ -14,7 +14,7 @@ function detectOS() {
   const ua = navigator.userAgent;
   const arch = navigator.platform.toLowerCase();
   if (/mac/i.test(ua)) {
-    return arch.includes('arm') || ua.includes('arm') ? 'mac-arm64' : 'mac-x64';
+    return 'mac-arm64';
   }
   if (/win/i.test(ua)) {
     return ua.includes('arm64') || ua.includes('aarch64') ? 'win-arm64' : 'win-x64';
@@ -48,6 +48,8 @@ async function init() {
   const detectedLink = document.getElementById('detected-link');
   const showAllBtn = document.getElementById('show-all-btn');
   const allDownloads = document.getElementById('all-downloads');
+  const detectedAlt = document.getElementById('detected-alt');
+  const altLink = document.getElementById('alt-link');
   const versionInfo = document.getElementById('version-info');
 
   try {
@@ -79,6 +81,10 @@ async function init() {
       };
       detectedText.textContent = `Detected ${labels[detected]} — ready to download:`;
       detectedLink.href = assets[detected];
+      if (detected === 'mac-arm64' && assets['mac-x64']) {
+        detectedAlt.classList.remove('hidden');
+        altLink.href = assets['mac-x64'];
+      }
       detectedPrompt.classList.remove('hidden');
     } else {
       allDownloads.classList.remove('hidden');
