@@ -101,4 +101,32 @@ async function init() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', init);
+// ─── Overlay controls ─────────────────────────────────────────
+function setupOverlay(overlay, closeBtns) {
+  const closers = closeBtns.map(id => document.getElementById(id));
+  closers.forEach(el => {
+    if (el) el.addEventListener('click', () => overlay.classList.add('hidden'));
+  });
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.classList.add('hidden');
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  init();
+
+  const privacyOverlay = document.getElementById('privacy-overlay');
+  const termsOverlay = document.getElementById('terms-overlay');
+  setupOverlay(privacyOverlay, ['close-privacy', 'privacy-ok']);
+  setupOverlay(termsOverlay, ['close-terms', 'terms-ok']);
+
+  document.getElementById('privacy-link').addEventListener('click', (e) => {
+    e.preventDefault();
+    privacyOverlay.classList.remove('hidden');
+  });
+
+  document.getElementById('terms-link').addEventListener('click', (e) => {
+    e.preventDefault();
+    termsOverlay.classList.remove('hidden');
+  });
+});
