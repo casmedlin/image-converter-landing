@@ -1,27 +1,23 @@
 const REPO = 'casmedlin/image-converter';
 const API = `https://api.github.com/repos/${REPO}/releases/latest`;
 
-const assetMap = {
-  'mac-arm64':     { pattern: /mac-arm64\.dmg$/ },
-  'mac-x64':       { pattern: /mac-x64\.dmg$/ },
-  'win-x64':       { pattern: /win-x64\.exe$/, exclude: /blockmap/ },
-  'win-arm64':     { pattern: /win-arm64\.exe$/, exclude: /blockmap/ },
-  'linux-x86_64':  { pattern: /linux-x86_64\.AppImage$/ },
-  'linux-arm64':   { pattern: /linux-arm64\.AppImage$/ },
+// Ordered list of matchers per platform.
+// Each entry tries `find` first (exact), then `fallback` (loose).
+const assetMatchers = {
+  'mac-arm64':     { find: /mac-arm64\.dmg$/i,                  fallback: /\.dmg$/i,                 exclude: /blockmap/i },
+  'mac-x64':       { find: /mac-x64\.dmg$/i,                   fallback: null,                      exclude: /blockmap/i },
+  'win-x64':       { find: /win-x64\.exe$/i,                   fallback: /setup.*\.exe$/i,          exclude: /blockmap|arm64/i },
+  'win-arm64':     { find: /win-arm64\.exe$/i,                 fallback: /setup.*\.exe$/i,          exclude: /blockmap/i },
+  'linux-x86_64':  { find: /(?:linux-x86_64|linux-x64|x86_64)\.AppImage$/i, fallback: /\.AppImage$/i, exclude: /arm64/i },
+  'linux-arm64':   { find: /(?:linux-arm64|arm64)\.AppImage$/i, fallback: null,                      exclude: null },
 };
 
 function detectOS() {
   const ua = navigator.userAgent;
   const arch = navigator.platform.toLowerCase();
-  if (/mac/i.test(ua)) {
-    return 'mac-arm64';
-  }
-  if (/win/i.test(ua)) {
-    return ua.includes('arm64') || ua.includes('aarch64') ? 'win-arm64' : 'win-x64';
-  }
-  if (/linux/i.test(ua)) {
-    return arch.includes('aarch64') || arch.includes('arm64') ? 'linux-arm64' : 'linux-x86_64';
-  }
+  if (/mac/i.test(ua)) return 'mac-arm64';
+  if (/win/i.test(ua)) return ua.includes('arm64') || ua.includes('aarch64') ? 'win-arm64' : 'win-x64';
+  if (/linux/i.test(ua)) return arch.includes('aarch64') || arch.includes('arm64') ? 'linux-arm64' : 'linux-x86_64';
   return null;
 }
 
@@ -31,13 +27,20 @@ async function fetchRelease() {
   return res.json();
 }
 
+function pickAsset(assets, matcher, used) {
+  const exclude = (a) => !used.has(a.name) && (!matcher.exclude || !matcher.exclude.test(a.name));
+  let a = assets.find(a => matcher.find.test(a.name) && exclude(a));
+  if (!a && matcher.fallback) a = assets.find(a => matcher.fallback.test(a.name) && exclude(a));
+  return a;
+}
+
 function mapAssets(release) {
+  const used = new Set();
   const assets = {};
-  for (const [key, { pattern, exclude }] of Object.entries(assetMap)) {
-    const asset = release.assets.find(a =>
-      pattern.test(a.name) && (!exclude || !exclude.test(a.name))
-    );
-    if (asset) assets[key] = asset.browser_download_url;
+  // Try exact matches first (don't consume fallback candidates yet)
+  for (const [key, matcher] of Object.entries(assetMatchers)) {
+    const a = pickAsset(release.assets, matcher, used);
+    if (a) { assets[key] = a.browser_download_url; used.add(a.name); }
   }
   return assets;
 }
@@ -96,7 +99,7 @@ async function init() {
     });
 
   } catch (e) {
-    versionInfo.textContent = 'v1.0.0';
+    versionInfo.textContent = 'v1.2.0';
     allDownloads.classList.remove('hidden');
   }
 }
